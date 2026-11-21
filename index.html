@@ -43,7 +43,12 @@
     <g id="scene"></g>
   </svg>
 
-  <!-- 홈 카드: 그림 위에 놓인 실제 버튼 (2초 누르기) -->
+  <!-- 홈 버튼: 게임 화면에서만 보인다 -->
+  <button type="button" id="homeBtn" aria-label="홈으로" hidden>
+    <svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="#FFFDF6"/><path d="M24 11 L37 23 L33 23 L33 35 L27 35 L27 27 L21 27 L21 35 L15 35 L15 23 L11 23 Z" fill="#0F4A34"/></svg>
+  </button>
+
+  <!-- 홈 카드: 그림 위에 놓인 실제 버튼 (한 번 누르기) -->
   <div id="cards">
     <button type="button" class="card-btn" data-game="car"   style="left:5.33%"  aria-label="자동차"></button>
     <button type="button" class="card-btn" data-game="hodu"  style="left:34.95%" aria-label="호두과자"></button>

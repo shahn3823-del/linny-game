@@ -19,13 +19,22 @@ body{display:grid;place-items:center;font-family:Jua,sans-serif;
   background:var(--grain),var(--fiber);mix-blend-mode:multiply;opacity:.6}
 text{font-family:Jua,sans-serif}
 
+/* 홈 버튼 */
+#homeBtn{position:absolute;left:1.4%;top:3%;width:5.7%;min-width:44px;aspect-ratio:1;z-index:2;
+  border:0;padding:0;background:transparent;border-radius:50%;cursor:pointer;touch-action:manipulation;
+  opacity:.82;filter:drop-shadow(0 2px 1px rgba(15,42,32,.3))}
+#homeBtn[hidden]{display:none}
+#homeBtn svg{position:static;width:100%;height:100%;display:block}
+#homeBtn:active{transform:scale(.92)}
+#homeBtn:focus-visible{outline:4px solid #0F4A34;outline-offset:2px}
+
 /* 홈 카드 버튼 */
 #cards[hidden]{display:none}
 .card-btn{position:absolute;top:23.85%;width:24.88%;height:57.44%;min-width:44px;min-height:44px;
   border:0;padding:0;background:transparent;border-radius:9%/8.5%;cursor:pointer;touch-action:none}
 .card-btn:focus-visible{outline:4px solid #0F4A34;outline-offset:4px}
 .card{transition:transform .18s ease-out}
-.card.holding{transform:scale(1.07);transition:transform 2s linear}
+.card.holding{transform:scale(.96);transition:transform .08s ease-out}
 
 /* 움직임 */
 .shake{animation:shake .15s linear}

@@ -32,7 +32,7 @@ const MOTION={car:'pump',hodu:'spin',water:'wiggle'};
 const TAP=!!window.LINNY_TAP||new URLSearchParams(location.search).has('dev');
 
 const $=id=>document.getElementById(id);
-const scene=$('scene'), cards=$('cards'), stageBox=$('stageBox');
+const scene=$('scene'), cards=$('cards'), stageBox=$('stageBox'), homeBtn=$('homeBtn');
 const done=new Set();
 let st={screen:'home',game:null,count:0,p:0,t0:0};
 let tok=0; // 화면이 바뀌면 올라간다. 지난 화면의 타이머를 무효로 만든다.
@@ -98,7 +98,7 @@ function showHome(){
   scene.innerHTML=`<rect width="844" height="390" fill="#F3FBF1"/>
     ${homeCard('car')}${homeCard('hodu')}${homeCard('water')}
     <text x="34" y="52" font-size="30" fill="${C.deep}">카드에 코를 대 봐!</text>${energy(3,done.size)}`;
-  cards.hidden=false;
+  cards.hidden=false; homeBtn.hidden=true;
 }
 
 /* ================= A 자동차 (앞뒤 = 부스트) ================= */
@@ -388,7 +388,7 @@ const G={car,hodu,water};
 function open(game){
   if(!G[game]) return;
   tok++; st={screen:'play',game,count:0,p:0,t0:0};
-  cards.hidden=true; G[game].enter();
+  cards.hidden=true; homeBtn.hidden=false; G[game].enter();
 }
 function detect(kind,dir){
   if(st.screen!=='play'||(kind&&kind!==MOTION[st.game])) return;
@@ -421,17 +421,18 @@ function complete(){
   later(showHome,CFG.doneMs);
 }
 
-/* 홈 카드: 2초 누르기 (키보드는 Enter/Space로 바로) */
+/* 홈 카드: 한 번 누르면 열린다 (RFID 카드 대신 터치) */
 cards.querySelectorAll('.card-btn').forEach(b=>{
-  const game=b.dataset.game; let timer=0;
-  const cancel=()=>{clearTimeout(timer);timer=0;const c=$('card-'+game);if(c)c.classList.remove('holding');};
-  b.addEventListener('pointerdown',e=>{ if(e.button) return; cancel();
-    const c=$('card-'+game); if(c) c.classList.add('holding');
-    timer=setTimeout(()=>{cancel();open(game);},CFG.holdMs); });
-  for(const ev of ['pointerup','pointerleave','pointercancel']) b.addEventListener(ev,cancel);
-  b.addEventListener('click',e=>{ if(e.detail===0||TAP) open(game); });
+  const game=b.dataset.game;
+  const press=on=>{const c=$('card-'+game);if(c)c.classList.toggle('holding',on);};
+  b.addEventListener('pointerdown',()=>press(true));
+  for(const ev of ['pointerup','pointerleave','pointercancel']) b.addEventListener(ev,()=>press(false));
+  b.addEventListener('click',()=>open(game));
   b.addEventListener('contextmenu',e=>e.preventDefault());
 });
+/* 홈 버튼: 게임 화면 왼쪽 위 */
+homeBtn.addEventListener('pointerdown',e=>e.stopPropagation()); // 톡 치기 모드에서 동작으로 세지 않게
+homeBtn.addEventListener('click',()=>showHome());
 
 /* 시험용 입력
    키보드: 홈에서 1·2·3 게임 열기. 게임에서 ↑ 앞으로 / ↓ 뒤로 / ← 왼쪽 / → 오른쪽 / Space 방향 없이 1번, D 감지, Esc 홈.
