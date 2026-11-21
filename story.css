@@ -1,0 +1,47 @@
+/* 로딩 · 스토리 · 에너지 완성 · 전달: 홈 위에 덮는 층. 종이 결은 .stage::after 가 그대로 덮는다 */
+#over[hidden],#skipBtn[hidden]{display:none}
+#over{touch-action:none}
+
+/* 스토리 동안 홈의 에너지 칸은 숨긴다(건너뛰기 버튼 자리) */
+/* 홈 그림에서 제목 글자 뒤에 오는 것이 에너지 칸이다 (game.js는 고치지 않는다) */
+.story-on #scene>text~*{visibility:hidden}
+
+/* 건너뛰기: 그림 위에 놓인 실제 버튼 (124×46) */
+#skipBtn{position:absolute;left:82.94%;top:4.62%;width:14.69%;height:11.79%;
+  border:0;padding:0;background:transparent;border-radius:999px;cursor:pointer;touch-action:manipulation}
+#skipBtn:focus-visible{outline:4px solid #FFD84A;outline-offset:3px}
+
+/* 에너지 완성 안내를 접었을 때: 홈 카드를 누를 수 있게 층은 비켜 주고 쪽지만 눌린다. 게임 중에는 숨는다 */
+#over[data-mode="mini"]{pointer-events:none}
+#over[data-mode="mini"] #miniChip{pointer-events:auto;cursor:pointer}
+#cards[hidden]~#over[data-mode="mini"]{display:none}
+
+/* 움직임 */
+.hop{animation:hop .42s ease-out}
+@keyframes hop{35%{transform:translateY(-12px)}70%{transform:translateY(0)}85%{transform:translateY(-3px)}}
+
+.rise{animation:rise .3s cubic-bezier(.2,.8,.3,1) both}
+@keyframes rise{from{transform:translateY(120px);opacity:0}}
+
+#fullBat{transform-box:fill-box;transform-origin:center;transition:transform .15s ease-out;cursor:pointer}
+#fullBat.holding{transform:scale(.94);transition:transform 2s linear}
+
+.cellpop{transform-box:fill-box;transform-origin:center;animation:cellpop .4s ease-out}
+@keyframes cellpop{35%{transform:scale(1.7)}70%{transform:scale(.9)}}
+
+.busHop{animation:busHop .3s ease-out}
+@keyframes busHop{40%{transform:translateY(-5px)}}
+
+.busGo{animation:busGo 1.5s cubic-bezier(.5,0,.9,.5) both}
+@keyframes busGo{to{transform:translateX(560px)}}
+
+.wind line{animation:wind .5s ease-in-out infinite alternate}
+.wind line:nth-child(2){animation-delay:.15s}
+.wind line:nth-child(3){animation-delay:.3s}
+@keyframes wind{to{transform:translateX(-14px);opacity:.55}}
+
+@media (prefers-reduced-motion:reduce){
+  .hop,.rise,.cellpop,.busHop,.wind line{animation:none}
+  .busGo{animation:none;transform:translateX(560px)}
+  #fullBat.holding{transform:none}
+}

@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0F4A34">
 <title>리니</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="story.css">
 </head>
 <body>
 <main class="stage" id="stageBox">
@@ -54,8 +55,13 @@
     <button type="button" class="card-btn" data-game="hodu"  style="left:34.95%" aria-label="호두과자"></button>
     <button type="button" class="card-btn" data-game="water" style="left:64.57%" aria-label="물주기"></button>
   </div>
+
+  <!-- 로딩 · 스토리 · 에너지 완성 · 전달: 홈 위에 덮는 층 (story.js) -->
+  <svg id="over" viewBox="0 0 844 390" preserveAspectRatio="xMidYMid meet" hidden><g id="overScene"></g></svg>
+  <button type="button" id="skipBtn" aria-label="스토리 건너뛰기" hidden></button>
 </main>
 <script src="game.js"></script>
+<script src="story.js"></script>
 <script src="model.js"></script>
 <script src="imu.js"></script>
 </body>

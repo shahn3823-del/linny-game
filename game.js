@@ -456,6 +456,7 @@ if(TAP){
   for(const ev of ['pointerup','pointercancel','pointerleave']) stageBox.addEventListener(ev,()=>{ if(!imuOn()) turn(0); });
 }
 
-window.Linny={open,detect,motion,turn,home:showHome,config:CFG,get state(){return {...st,done:[...done]};}};
+function reset(){ done.clear(); showHome(); } // 전달이 끝나면 에너지를 0으로 되돌린다 (story.js가 부른다)
+window.Linny={open,detect,motion,turn,home:showHome,reset,config:CFG,get state(){return {...st,done:[...done]};}};
 showHome();
 })();
