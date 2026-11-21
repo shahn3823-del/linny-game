@@ -1,15 +1,19 @@
 /* 리니: 휴대폰 내장 IMU로 동작 판단
-   휴대폰을 휠체어(의자)에 가로로 고정하고, 화면이 아이를 향하게 둔다. 세워도 되고 비스듬히 눕혀도 된다.
-     앞뒤 왕복(pump)  : 중력을 뺀 가속도의 앞뒤 성분이 문턱을 넘으면 1번 인정 → 자동차 부스트
-     제자리 회전(spin) : 수직축 회전 속도가 문턱을 넘는 순간 1번 인정 → 호두과자 뒤집기 (속도가 줄어야 다시 인정)
-     좌우 돌기(turn)   : 수직축 회전 속도를 그대로 전달 → 물줄기 방향과 세기
-   센서는 HTTPS(또는 localhost)에서만 값이 나온다. 주소 끝에 #debug 를 붙이면 센서 값을 화면에 보여 준다. */
+   녹화 웹앱·학습 노트북(train-v1.3.1)과 같은 조건으로 읽는다.
+     폰을 받침판에 눕혀 고정(화면이 위). 기기 x = 앞, y = 왼쪽, z = 위.
+     가속도는 중력 포함 값(ax_g, ay_g, az_g), 회전은 rot_alpha/beta/gamma(도/초). 수직축 회전 = rot_gamma.
+   두 층으로 판단한다.
+     빠른 층(샘플마다): 화면이 바로 따라가야 하는 것
+        제자리 회전 시작 → 호두과자 뒤집기 / 수직축 회전 속도 → 물줄기 방향·세기 / 앞뒤 가속 한 번 → 자동차 부스트
+     모델 층(0.5초마다): model.json이 있으면 노트북과 똑같이 특징 → 모델 → 평활 → 에너지 판단
+        자동차에서는 모델이 "앞뒤 왕복(pump)"이라고 본 동안의 앞뒤 가속만 부스트로 인정하고, 모델의 pump 에너지 판단마다 한 번 더 민다.
+   센서는 HTTPS(또는 localhost)에서만 값이 나온다. 주소 끝에 #debug 를 붙이면 값이 보인다. ?rule 은 모델 대신 규칙 베이스라인. */
 (() => {
 'use strict';
 const L=window.Linny; if(!L) return;
 
 const K=L.config.imu={
-  pumpAcc:.9,        // 앞뒤 인정 문턱 (m/s²)
+  pumpAcc:.9,        // 앞뒤 인정 문턱 (m/s², 평균을 뺀 x 가속)
   pumpDetect:.4,     // 앞뒤 감지 문턱: 화면이 살짝 반응한다
   pumpGapMs:350,     // 앞뒤 인정 사이 최소 간격
   spinRate:50,       // 회전 인정 문턱 (도/초)
@@ -17,56 +21,65 @@ const K=L.config.imu={
   spinRearm:20,      // 이 속도 아래로 spinRearmMs 동안 내려가야 다음 회전을 인정
   spinRearmMs:150,
   turnFull:70,       // 물줄기가 가장 세지는 회전 속도 (도/초)
-  turnDead:6,        // 이보다 느린 회전은 무시
+  turnDead:10,       // 이보다 느린 회전은 무시 (노트북의 GZ_DEAD와 같은 값)
   invertForward:false, // 앞뒤가 거꾸로면 true
-  invertTurn:false     // 좌우가 거꾸로면 true
+  invertTurn:false,    // 좌우가 거꾸로면 true
+  modelUrl:'model.json',
+  modelBoost:1.6,      // 모델의 pump 에너지 판단 한 번이 미는 세기(앞뒤 가속 한 번 = 1)
+  modelHoldMs:1500     // 모델이 pump라고 본 뒤 이 시간 동안은 앞뒤 가속을 부스트로 인정
 };
-const S=L.imu={active:false,events:0,fwd:0,yaw:0,pumps:0,spins:0,turn:0,feed:onMotion};
+// 채널: 노트북 CONFIG와 같다. model.json이 있으면 그 안의 preprocess.channels를 쓴다
+let CH={ax:'ax_g',ay:'ay_g',az:'az_g',gx:'rot_alpha',gy:'rot_beta',gz:'rot_gamma'}, rotScale=1;
+const S=L.imu={active:false,events:0,fwd:0,yaw:0,pumps:0,spins:0,turn:0,model:'없음',label:'',p:0,feed:onMotion};
 
-const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
-const len=a=>Math.hypot(a[0],a[1],a[2]);
-let grav=null, fwd=0, yaw=0, lastPump=0, lastDetect=0, armed=true, slowSince=0;
+let clf=null, axMean=null, fwd=0, yaw=0, lastPump=0, lastDetect=0, armed=true, slowSince=0, pumpSeen=-1e9;
 
-function screenUp(){ // 지금 화면의 위쪽이 기기의 어느 축인가
-  const a=(screen.orientation&&screen.orientation.angle)||0;
-  return a===90?[1,0,0]:a===270?[-1,0,0]:a===180?[0,-1,0]:[0,1,0];
-}
 function onMotion(e){
   const ag=e.accelerationIncludingGravity; if(!ag||ag.x==null) return;
-  const now=performance.now(), G=[ag.x,ag.y,ag.z];
+  const rr=e.rotationRate||{}, now=performance.now();
+  const raw={ax_g:ag.x,ay_g:ag.y,az_g:ag.z,rot_alpha:(rr.alpha||0)*rotScale,rot_beta:(rr.beta||0)*rotScale,rot_gamma:(rr.gamma||0)*rotScale};
+  const v=[raw[CH.ax],raw[CH.ay],raw[CH.az],raw[CH.gx],raw[CH.gy],raw[CH.gz]];
   if(++S.events>3&&!S.active){ S.active=true; L.imuActive=true; }
 
-  // 중력 방향(=위쪽): 천천히 따라가는 평균
-  if(!grav) grav=G.slice(); else for(let i=0;i<3;i++) grav[i]+=.08*(G[i]-grav[i]);
-  const gl=len(grav); if(gl<1) return;
-  const up=grav.map(v=>v/gl);
+  /* ── 모델 층: 노트북과 같은 판단 ── */
+  if(clf){ const r=clf.push(now,v);
+    if(r){ S.label=r.label; S.p=r.p;
+      if(r.label==='pump') pumpSeen=now;
+      if(r.event==='pump') L.motion('pump',fwd>=0?'forward':'back',K.modelBoost);
+      window.dispatchEvent(new CustomEvent('linny:class',{detail:{t:r.t,label:r.label,p:r.p,event:r.event}})); } }
 
-  // 앞쪽 = 화면 뒷면과 화면 위쪽을 수평면에 눕힌 방향 (세운 폰은 뒷면, 눕힌 폰은 화면 위쪽이 앞이다)
-  const su=screenUp(), back=[0,0,-1], h=[0,0,0];
-  for(const v of [back,su]){ const d=dot(v,up); for(let i=0;i<3;i++) h[i]+=v[i]-d*up[i]; }
-  const hl=len(h);
+  /* ── 빠른 층 ── */
+  // 앞뒤: x 가속에서 천천히 따라가는 평균(받침판 기울기 몫)을 뺀 값
+  if(axMean===null) axMean=v[0]; else axMean+=.02*(v[0]-axMean);
+  let af=v[0]-axMean; if(K.invertForward) af=-af;
+  fwd+=.3*(af-fwd); S.fwd=fwd;
+  const ma=Math.abs(fwd);
+  if(ma>K.pumpDetect&&now-lastDetect>250){ lastDetect=now; L.detect('pump'); }
+  if(ma>K.pumpAcc&&now-lastPump>K.pumpGapMs){ lastPump=now; S.pumps++;
+    if(!clf||now-pumpSeen<K.modelHoldMs) L.motion('pump',fwd>0?'forward':'back'); } // 모델이 있으면 pump로 본 동안만 인정
 
-  // 앞뒤 가속도
-  const la=e.acceleration, A=la&&la.x!=null?[la.x,la.y,la.z]:G.map((v,i)=>v-grav[i]);
-  if(hl>.2){ let af=dot(A,h)/hl; if(K.invertForward) af=-af;
-    fwd+=.3*(af-fwd); S.fwd=fwd;
-    const m=Math.abs(fwd);
-    if(m>K.pumpDetect&&now-lastDetect>250){ lastDetect=now; L.detect('pump'); }
-    if(m>K.pumpAcc&&now-lastPump>K.pumpGapMs){ lastPump=now; S.pumps++; L.motion('pump',fwd>0?'forward':'back'); } }
-
-  // 수직축 회전 속도: 왼쪽으로 돌면 +
-  const rr=e.rotationRate;
-  if(rr&&rr.alpha!=null){ let y=dot([rr.beta,rr.gamma,rr.alpha],up); if(K.invertTurn) y=-y;
-    yaw+=.35*(y-yaw); S.yaw=yaw;
-    const m=Math.abs(yaw);
-    if(armed){
-      if(m>K.spinDetect&&now-lastDetect>250){ lastDetect=now; L.detect('spin'); }
-      if(m>K.spinRate){ armed=false; slowSince=0; S.spins++; L.motion('spin'); } }
-    else if(m<K.spinRearm){ if(!slowSince) slowSince=now; else if(now-slowSince>K.spinRearmMs) armed=true; }
-    else slowSince=0;
-    S.turn=m<K.turnDead?0:Math.max(-1,Math.min(1,-yaw/K.turnFull));
-    L.turn(S.turn); }
+  // 수직축 회전: 왼쪽으로 돌면 +
+  let y=v[5]; if(K.invertTurn) y=-y;
+  yaw+=.35*(y-yaw); S.yaw=yaw;
+  const my=Math.abs(yaw);
+  if(armed){
+    if(my>K.spinDetect&&now-lastDetect>250){ lastDetect=now; L.detect('spin'); }
+    if(my>K.spinRate){ armed=false; slowSince=0; S.spins++; L.motion('spin'); } }
+  else if(my<K.spinRearm){ if(!slowSince) slowSince=now; else if(now-slowSince>K.spinRearmMs) armed=true; }
+  else slowSince=0;
+  S.turn=my<K.turnDead?0:Math.max(-1,Math.min(1,-yaw/K.turnFull));
+  L.turn(S.turn);
 }
+
+/* model.json 불러오기: 없거나 연습용(demo_data)이면 빠른 층만 쓴다 */
+const useRule=new URLSearchParams(location.search).has('rule');
+if(window.LinnyModel) fetch(K.modelUrl,{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(J=>{
+  if(J.demo_data){ S.model='연습용 가짜 데이터 모델이라 쓰지 않음'; return; }
+  const c=J.preprocess.channels; CH={ax:c.ax,ay:c.ay,az:c.az,gx:c.gx,gy:c.gy,gz:c.gz};
+  rotScale=J.preprocess.rot_unit_in==='rad/s'?180/Math.PI:1;
+  clf=window.LinnyModel.create(J,useRule?'rule':'model');
+  S.model=`${J.version} · ${clf.usingRule?'규칙':J.model.type} · 창 ${J.preprocess.win_s}초`;
+}).catch(()=>{ S.model='model.json 없음 (빠른 판단만)'; });
 
 function listen(){ addEventListener('devicemotion',onMotion); }
 let lock=null;
@@ -97,6 +110,7 @@ if(location.hash==='#debug'||new URLSearchParams(location.search).has('debug')){
     `센서 ${S.active?'켜짐':'값 없음'} (${S.events})\n`+
     `앞뒤 ${S.fwd.toFixed(2)} m/s²  인정 ${S.pumps}\n`+
     `회전 ${S.yaw.toFixed(0)} 도/초  인정 ${S.spins}\n`+
-    `물줄기 ${S.turn.toFixed(2)}`; },120);
+    `물줄기 ${S.turn.toFixed(2)}\n`+
+    `모델 ${S.model}`+(S.label?`\n판단 ${S.label} ${(S.p*100).toFixed(0)}%`:''); },120);
 }
 })();

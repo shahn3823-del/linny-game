@@ -190,10 +190,10 @@ const car={
     requestAnimationFrame(loop);
   },
   onDetect(){retrigger($('carDash'),'shake');},
-  onMotion(dir){ // 앞뒤 동작의 힘이 차에 실린다
+  onMotion(dir,k=1){ // 앞뒤 동작의 힘이 차에 실린다
     if(dir!=='forward'&&dir!=='back') dir=this.lastDir==='forward'?'back':'forward';
     this.lastDir=dir;
-    this.b=Math.min(CFG.car.boostMax,this.b+CFG.car.boost);
+    this.b=Math.min(CFG.car.boostMax,this.b+CFG.car.boost*k);
     this.tilt=dir==='forward'?5:-4;
   },
   result(){
@@ -394,10 +394,10 @@ function detect(kind,dir){
   if(st.screen!=='play'||(kind&&kind!==MOTION[st.game])) return;
   G[st.game].onDetect(dir);
 }
-function motion(kind,dir){
+function motion(kind,dir,k){ // k: 세기(기본 1)
   if(st.screen!=='play'||(kind&&kind!==MOTION[st.game])) return;
   touch(); st.count++;
-  G[st.game].onMotion(dir);
+  G[st.game].onMotion(dir,k>0?k:1);
 }
 function touch(){ // 첫 동작: 안내를 치우고 시간을 재기 시작한다
   if(st.t0) return;
