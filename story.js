@@ -145,16 +145,13 @@ function full(){
     <g id="fullBat">${bigBattery(240,140,3)}</g>
     <path d="M474 190 L520 190" stroke="${C.deep}" stroke-width="8" stroke-linecap="round"/><path d="M516 172 L542 190 L516 208 Z" fill="${C.deep}"/>
     <g transform="translate(556 150) scale(.3)">${bus(0,0,0,false)}</g>
-    <text x="422" y="292" font-size="26" text-anchor="middle" fill="${C.deep}">똥버스로 가져가 주세요</text></g>`);
+    <text x="422" y="292" font-size="26" text-anchor="middle" fill="${C.deep}">화면을 눌러 똥버스로 보내요</text></g>`);
   sendMode(3);
-  // 카드가 안 읽힐 때: 배터리 그림을 2초 누르면 전달로 넘어간다
-  const bat=$('fullBat'); let timer=0;
-  const stop=()=>{ clearTimeout(timer); bat.classList.remove('holding'); };
-  bat.addEventListener('pointerdown',()=>{ stop(); bat.classList.add('holding'); const t=tok; timer=setTimeout(()=>{ if(t===tok) deliver(); },CFG.holdMs); });
-  for(const ev of ['pointerup','pointerleave','pointercancel']) bat.addEventListener(ev,stop);
+  shownAt=performance.now();
+  // 이번 버전(RFID 카드 없음): 화면을 누르면 바로 전달로 넘어간다. 아래 "입력"의 클릭 처리 참고
 }
 function mini(){ // 접힌 안내: 홈 오른쪽 위 에너지 칸 옆. 게임 카드는 그대로 댈 수 있다. 누르면 다시 펼친다
-  set('mini',`<g id="miniChip"><title>똥버스로 가져가 주세요</title><g filter="url(#lift)"><rect x="478" y="15" width="184" height="40" rx="20" fill="${C.sheet}"/></g>
+  set('mini',`<g id="miniChip"><title>눌러서 똥버스로 보내요</title><g filter="url(#lift)"><rect x="478" y="15" width="184" height="40" rx="20" fill="${C.sheet}"/></g>
     <g transform="translate(491 22) scale(.19)">${bus(0,0,0,false)}</g>
     <text x="604" y="42" font-size="20" text-anchor="middle" fill="${C.deep}">똥버스로!</text></g>`);
 }
@@ -211,8 +208,8 @@ function finish(){ // 에너지를 0으로 되돌리고 홈으로
 /* ================= 입력 ================= */
 over.addEventListener('click',e=>{
   if(mode==='story') nextPage();                 // 화면 아무 곳이나 누르면 다음 장
-  else if(mode==='full') mini();                 // 한 번 누르면 작게 접힌다
-  else if(mode==='mini'){ if(e.target.closest('#miniChip')) full(); }
+  else if(mode==='full'){ if(performance.now()-shownAt>600) deliver(); } // 누르면 바로 똥버스로 (뜨자마자 잘못 눌리는 것만 막는다)
+  else if(mode==='mini'){ if(e.target.closest('#miniChip')) deliver(); }  // 접힌 "똥버스로!"도 누르면 바로 간다
   else if(mode==='delivered'&&performance.now()-shownAt>600) finish();
 });
 over.addEventListener('contextmenu',e=>e.preventDefault());
