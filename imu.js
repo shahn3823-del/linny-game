@@ -13,14 +13,16 @@
 const L=window.Linny; if(!L) return;
 
 const K=L.config.imu={
-  pumpAcc:.9,        // 앞뒤 인정 문턱 (m/s², 평균을 뺀 x 가속)
+  // 아래 문턱은 11/21 P1 녹화(spin·pump·dance·move·still 각 60초)에 맞춘 값이다. 한 사람 데이터라 다른 사람에게는 다시 봐야 한다.
+  pumpAcc:.8,        // 앞뒤 인정 문턱 (m/s², 평균을 뺀 x 가속). pump 녹화에서 20초에 12~22번
   pumpDetect:.4,     // 앞뒤 감지 문턱: 화면이 살짝 반응한다
   pumpGapMs:350,     // 앞뒤 인정 사이 최소 간격
-  spinRate:50,       // 회전 인정 문턱 (도/초)
-  spinDetect:25,     // 회전 감지 문턱
-  spinRearm:20,      // 이 속도 아래로 spinRearmMs 동안 내려가야 다음 회전을 인정
+  pumpMaxTurn:25,    // 이보다 빨리 도는 중의 앞뒤 가속은 인정하지 않는다(돌 때 생기는 가속을 거른다. pump 중 회전은 99%가 23도/초 이하)
+  spinRate:35,       // 회전 인정 문턱 (도/초). 의자 회전은 초당 40~60도, 가만히 있을 때는 99%가 18도/초 이하
+  spinDetect:18,     // 회전 감지 문턱
+  spinRearm:15,      // 이 속도 아래로 spinRearmMs 동안 내려가야 다음 회전을 인정
   spinRearmMs:150,
-  turnFull:70,       // 물줄기가 가장 세지는 회전 속도 (도/초)
+  turnFull:45,       // 물줄기가 가장 세지는 회전 속도 (도/초). 좌우 흔들기의 꼭대기는 초당 45~65도
   turnDead:10,       // 이보다 느린 회전은 무시 (노트북의 GZ_DEAD와 같은 값)
   invertForward:false, // 앞뒤가 거꾸로면 true
   invertTurn:false,    // 좌우가 거꾸로면 true
@@ -36,7 +38,7 @@ let clf=null, axMean=null, fwd=0, yaw=0, lastPump=0, lastDetect=0, armed=true, s
 
 function onMotion(e){
   const ag=e.accelerationIncludingGravity; if(!ag||ag.x==null) return;
-  const rr=e.rotationRate||{}, now=performance.now();
+  const rr=e.rotationRate||{}, now=e.t!=null?e.t:performance.now(); // e.t: 녹화를 다시 흘려 넣을 때의 시각(ms)
   const raw={ax_g:ag.x,ay_g:ag.y,az_g:ag.z,rot_alpha:(rr.alpha||0)*rotScale,rot_beta:(rr.beta||0)*rotScale,rot_gamma:(rr.gamma||0)*rotScale};
   const v=[raw[CH.ax],raw[CH.ay],raw[CH.az],raw[CH.gx],raw[CH.gy],raw[CH.gz]];
   if(++S.events>3&&!S.active){ S.active=true; L.imuActive=true; }
@@ -52,16 +54,15 @@ function onMotion(e){
   // 앞뒤: x 가속에서 천천히 따라가는 평균(받침판 기울기 몫)을 뺀 값
   if(axMean===null) axMean=v[0]; else axMean+=.02*(v[0]-axMean);
   let af=v[0]-axMean; if(K.invertForward) af=-af;
-  fwd+=.3*(af-fwd); S.fwd=fwd;
-  const ma=Math.abs(fwd);
-  if(ma>K.pumpDetect&&now-lastDetect>250){ lastDetect=now; L.detect('pump'); }
-  if(ma>K.pumpAcc&&now-lastPump>K.pumpGapMs){ lastPump=now; S.pumps++;
-    if(!clf||now-pumpSeen<K.modelHoldMs) L.motion('pump',fwd>0?'forward':'back'); } // 모델이 있으면 pump로 본 동안만 인정
-
+  fwd+=.2*(af-fwd); S.fwd=fwd;
   // 수직축 회전: 왼쪽으로 돌면 +
   let y=v[5]; if(K.invertTurn) y=-y;
   yaw+=.35*(y-yaw); S.yaw=yaw;
-  const my=Math.abs(yaw);
+  const ma=Math.abs(fwd), my=Math.abs(yaw);
+  if(ma>K.pumpDetect&&now-lastDetect>250){ lastDetect=now; L.detect('pump'); }
+  if(ma>K.pumpAcc&&now-lastPump>K.pumpGapMs&&my<K.pumpMaxTurn){ lastPump=now; S.pumps++;
+    if(!clf||now-pumpSeen<K.modelHoldMs) L.motion('pump',fwd>0?'forward':'back'); } // 모델이 있으면 pump로 본 동안만 인정
+
   if(armed){
     if(my>K.spinDetect&&now-lastDetect>250){ lastDetect=now; L.detect('spin'); }
     if(my>K.spinRate){ armed=false; slowSince=0; S.spins++; L.motion('spin'); } }
