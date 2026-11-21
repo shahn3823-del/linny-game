@@ -32,16 +32,19 @@ const K=L.config.imu={
 };
 // 채널: 노트북 CONFIG와 같다. model.json이 있으면 그 안의 preprocess.channels를 쓴다
 let CH={ax:'ax_g',ay:'ay_g',az:'az_g',gx:'rot_alpha',gy:'rot_beta',gz:'rot_gamma'}, rotScale=1;
-const S=L.imu={active:false,events:0,fwd:0,yaw:0,pumps:0,spins:0,turn:0,model:'없음',label:'',p:0,feed:onMotion};
+const S=L.imu={active:false,events:0,skipped:0,az:0,fwd:0,yaw:0,pumps:0,spins:0,turn:0,model:'없음',label:'',p:0,feed:onMotion};
 
 let clf=null, axMean=null, fwd=0, yaw=0, lastPump=0, lastDetect=0, armed=true, slowSince=0, pumpSeen=-1e9;
 
 function onMotion(e){
-  const ag=e.accelerationIncludingGravity; if(!ag||ag.x==null) return;
-  const rr=e.rotationRate||{}, now=e.t!=null?e.t:performance.now(); // e.t: 녹화를 다시 흘려 넣을 때의 시각(ms)
-  const raw={ax_g:ag.x,ay_g:ag.y,az_g:ag.z,rot_alpha:(rr.alpha||0)*rotScale,rot_beta:(rr.beta||0)*rotScale,rot_gamma:(rr.gamma||0)*rotScale};
+  // 녹화 웹앱(rec-v1.0)과 똑같이 읽는다: 가속도나 회전 값이 비어 있는 샘플은 건너뛰고, 시각은 e.timeStamp를 쓴다
+  const ag=e.accelerationIncludingGravity, rr=e.rotationRate;
+  if(!ag||ag.x==null||!rr||rr.alpha==null){ S.skipped++; return; }
+  const now=e.t!=null?e.t:(e.timeStamp>0?e.timeStamp:performance.now()); // e.t: 녹화를 다시 흘려 넣을 때의 시각(ms)
+  const raw={ax_g:ag.x,ay_g:ag.y,az_g:ag.z,rot_alpha:rr.alpha*rotScale,rot_beta:(rr.beta||0)*rotScale,rot_gamma:(rr.gamma||0)*rotScale};
   const v=[raw[CH.ax],raw[CH.ay],raw[CH.az],raw[CH.gx],raw[CH.gy],raw[CH.gz]];
   if(++S.events>3&&!S.active){ S.active=true; L.imuActive=true; }
+  S.az+=(S.events===1?1:.02)*(ag.z-S.az); // 폰 방향 확인용: 눕혀 놓으면 약 +9.8
 
   /* ── 모델 층: 노트북과 같은 판단 ── */
   if(clf){ const r=clf.push(now,v);
@@ -108,7 +111,8 @@ if(location.hash==='#debug'||new URLSearchParams(location.search).has('debug')){
   document.body.appendChild(d);
   setInterval(()=>{ d.textContent=
     (isSecureContext?'':'HTTPS가 아니라 센서가 막혀 있음\n')+
-    `센서 ${S.active?'켜짐':'값 없음'} (${S.events})\n`+
+    `센서 ${S.active?'켜짐':'값 없음'} (${S.events}${S.skipped?`, 빈 값 ${S.skipped}`:''})\n`+
+    (S.active?`폰 방향 az_g ${S.az.toFixed(1)} ${S.az>=9.5&&S.az<=10.1?'정상':'확인 필요(눕혀서 9.5~10.1)'}\n`:'')+
     `앞뒤 ${S.fwd.toFixed(2)} m/s²  인정 ${S.pumps}\n`+
     `회전 ${S.yaw.toFixed(0)} 도/초  인정 ${S.spins}\n`+
     `물줄기 ${S.turn.toFixed(2)}\n`+
