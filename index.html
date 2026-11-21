@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0F4A34">
 <title>리니</title>
+<!-- 앱처럼 쓰기: 홈 화면에 추가하면 주소창 없이 가로 전체 화면으로 열린다 -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="리니">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="story.css">
 </head>
@@ -64,5 +71,9 @@
 <script src="story.js"></script>
 <script src="model.js"></script>
 <script src="imu.js"></script>
+<script>
+// 오프라인 저장 켜기 (https나 localhost에서만 된다)
+if('serviceWorker' in navigator&&isSecureContext) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
 </body>
 </html>
