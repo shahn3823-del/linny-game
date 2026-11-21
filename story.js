@@ -103,8 +103,11 @@ function afterLoading(){ if(Q.get('story')==='1'||!seen()) story(1); else toHome
 function toHome(){ set('off'); checkFull(); }
 
 /* ================= 스토리 3장 (홈 위에 어두운 층) ================= */
-const seen=()=>{try{return localStorage.getItem(CFG.seenKey)==='1';}catch(e){return false;}};
-const markSeen=()=>{try{localStorage.setItem(CFG.seenKey,'1');}catch(e){}};
+// 새로고침하면 처음부터: 스토리를 봤다는 기록을 폰에 남기지 않는다. 열 때마다 로딩 → 스토리 → 홈(에너지 0) 순서로 시작한다.
+// 스토리 없이 바로 홈으로 가려면 주소 끝에 ?story=0 을 붙인다.
+try{localStorage.removeItem(CFG.seenKey);}catch(e){} // 예전 버전이 남긴 기록 지우기
+const seen=()=>Q.get('story')==='0';
+const markSeen=()=>{};
 // hop: 말하는 캐릭터, b: 말풍선(x, y, 폭, 대사, 꼬리 x, 꼬리 방향)
 const PAGES=[
   {hop:['stLinny'],wonny:false,b:[[214,150,400,['큰일이야!','똥버스의 에너지가 다 떨어졌대'],262,-1]]},
