@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0F4A34">
+<title>리니</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="stage" id="stageBox">
+  <svg id="stage" viewBox="0 0 844 390" preserveAspectRatio="xMidYMid meet" role="img" aria-label="리니 게임 화면">
+    <defs>
+      <!-- 오린 가장자리 -->
+      <filter id="rough" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="7" result="t"/>
+        <feDisplacementMap in="SourceGraphic" in2="t" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <!-- 종이 한 장 높이 그림자 -->
+      <filter id="lift" x="-10%" y="-10%" width="120%" height="130%">
+        <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="7" result="t"/>
+        <feDisplacementMap in="SourceGraphic" in2="t" scale="3" xChannelSelector="R" yChannelSelector="G" result="d"/>
+        <feDropShadow in="d" dx="0" dy="2.5" stdDeviation=".4" flood-color="#0F2A20" flood-opacity=".28" result="s1"/>
+        <feDropShadow in="d" dx="0" dy="8" stdDeviation="5" flood-color="#0F2A20" flood-opacity=".18" result="s2"/>
+        <feMerge><feMergeNode in="s2"/><feMergeNode in="s1"/></feMerge>
+      </filter>
+      <symbol id="car" viewBox="0 0 160 92">
+        <path d="M14 46 Q14 38 24 37 L46 35 L60 14 Q63 10 70 10 L110 10 Q117 10 121 15 L136 35 L146 37 Q154 39 154 48 L154 64 Q154 70 148 70 L18 70 Q10 70 10 63 Z" fill="#FFD84A"/>
+        <path d="M67 18 L98 18 L98 35 L56 35 Z" fill="#0F4A34"/><path d="M104 18 L114 18 Q117 18 119 21 L129 35 L104 35 Z" fill="#0F4A34"/>
+        <rect x="10" y="50" width="144" height="5" fill="#5AB953"/>
+        <circle cx="44" cy="72" r="16" fill="#0F4A34"/><circle cx="44" cy="72" r="6" fill="#FFFDF6"/>
+        <circle cx="120" cy="72" r="16" fill="#0F4A34"/><circle cx="120" cy="72" r="6" fill="#FFFDF6"/>
+      </symbol>
+      <symbol id="tower" viewBox="0 0 96 240" overflow="visible">
+        <rect x="46" y="0" width="4" height="62" fill="#0F4A34"/><rect x="45" y="14" width="6" height="8" fill="#E8532B"/><rect x="45" y="34" width="6" height="8" fill="#E8532B"/>
+        <path d="M44 62 L52 62 L54 96 L42 96 Z" fill="#0F4A34"/>
+        <path d="M26 96 Q26 86 48 86 Q70 86 70 96 L70 118 Q70 126 48 126 Q26 126 26 118 Z" fill="#0F4A34"/>
+        <rect x="28" y="102" width="40" height="7" fill="#FFD84A"/>
+        <path d="M40 126 L56 126 L60 240 L36 240 Z" fill="#FFFDF6"/>
+      </symbol>
+      <symbol id="bolt" viewBox="0 0 24 28"><path d="M14 0 L2 16 L11 16 L8 28 L22 10 L13 10 Z" fill="#0F4A34"/></symbol>
+    </defs>
+    <g id="scene"></g>
+  </svg>
+
+  <!-- 홈 카드: 그림 위에 놓인 실제 버튼 (2초 누르기) -->
+  <div id="cards">
+    <button type="button" class="card-btn" data-game="car"   style="left:5.33%"  aria-label="자동차"></button>
+    <button type="button" class="card-btn" data-game="hodu"  style="left:34.95%" aria-label="호두과자"></button>
+    <button type="button" class="card-btn" data-game="water" style="left:64.57%" aria-label="물주기"></button>
+  </div>
+</main>
+<script src="game.js"></script>
+<script src="imu.js"></script>
+</body>
+</html>
